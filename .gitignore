@@ -1,1 +1,6 @@
-out/
+__pycache__/
+backup/
+process.zip
+*.txt
+.ipynb_checkpoints/
+*.swp
