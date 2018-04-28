@@ -5,4 +5,5 @@ process.zip
 .ipynb_checkpoints/
 *.swp
 *.pkl
+*.yml
 
