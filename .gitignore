@@ -4,3 +4,5 @@ process.zip
 *.txt
 .ipynb_checkpoints/
 *.swp
+*.pkl
+
