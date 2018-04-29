@@ -1,7 +1,7 @@
 """ A neural chatbot using sequence to sequence model with
-attentional decoder.
+attentional decoder. 
 
-This is based on Google Translate Tensorflow model
+This is based on Google Translate Tensorflow model 
 https://github.com/tensorflow/models/blob/master/tutorials/rnn/translate/
 
 Sequence to sequence model by Cho et al.(2014)
@@ -22,6 +22,7 @@ import re
 import numpy as np
 
 import config
+import deepcut
 
 def get_lines():
     id2line = {}
@@ -71,10 +72,10 @@ def question_answers(id2line, convos):
 def prepare_dataset(questions, answers):
     # create path to store all the train & test encoder & decoder
     make_dir(config.PROCESSED_PATH)
-
+    
     # random convos to create the test set
     test_ids = random.sample([i for i in range(len(questions))],config.TESTSET_SIZE)
-
+    
     filenames = ['train.enc', 'train.dec', 'test.enc', 'test.dec']
     files = []
     for filename in filenames:
@@ -101,21 +102,22 @@ def make_dir(path):
 def basic_tokenizer(line, normalize_digits=True):
     """ A basic tokenizer to tokenize text into tokens.
     Feel free to change this to suit your need. """
-    line = re.sub('<u>', '', line)
-    line = re.sub('</u>', '', line)
-    line = re.sub('\[', '', line)
-    line = re.sub('\]', '', line)
-    words = []
-    _WORD_SPLIT = re.compile("([.,!?\"'-<>:;)(])")
-    _DIGIT_RE = re.compile(r"\d")
-    for fragment in line.strip().lower().split():
-        for token in re.split(_WORD_SPLIT, fragment):
-            if not token:
-                continue
-            if normalize_digits:
-                token = re.sub(_DIGIT_RE, '#', token)
-            words.append(token)
-    return words
+    #line = re.sub('<u>', '', line)
+    #line = re.sub('</u>', '', line)
+    #line = re.sub('\[', '', line)
+    #line = re.sub('\]', '', line)
+    #words = []
+    #_WORD_SPLIT = re.compile("([.,!?\"'-<>:;)(])")
+    #_DIGIT_RE = re.compile(r"\d")
+    #for fragment in line.strip().lower().split():
+    #    for token in re.split(_WORD_SPLIT, fragment):
+    #        if not token:
+    #            continue
+    #        if normalize_digits:
+    #            token = re.sub(_DIGIT_RE, '#', token)
+    #        words.append(token)
+    #return words
+    return deepcut.tokenize(line)
 
 def build_vocab(filename, normalize_digits=True):
     in_path = os.path.join(config.PROCESSED_PATH, filename)
@@ -134,7 +136,7 @@ def build_vocab(filename, normalize_digits=True):
         f.write('<pad>' + '\n')
         f.write('<unk>' + '\n')
         f.write('<s>' + '\n')
-        f.write('<\s>' + '\n')
+        f.write('<\s>' + '\n') 
         index = 4
         for word in sorted_vocab:
             if vocab[word] < config.THRESHOLD:
@@ -153,7 +155,7 @@ def load_vocab(vocab_path):
     return words, {words[i]: i for i in range(len(words))}
 
 def sentence2id(vocab, line):
-    return [vocab.get(token, vocab['<unk>']) for token in basic_tokenizer(line)]
+    return [vocab.get(token, vocab['UNK']) for token in basic_tokenizer(line)]
 
 def token2id(data, mode):
     """ Convert all the tokens in the data into their corresponding
@@ -165,7 +167,7 @@ def token2id(data, mode):
     _, vocab = load_vocab(os.path.join(config.PROCESSED_PATH, vocab_path))
     in_file = open(os.path.join(config.PROCESSED_PATH, in_path), 'r')
     out_file = open(os.path.join(config.PROCESSED_PATH, out_path), 'w')
-
+    
     lines = in_file.read().splitlines()
     for line in lines:
         if mode == 'dec': # we only care about '<s>' and </s> in encoder

@@ -37,11 +37,11 @@ class ChatBotModel:
 
         def sampled_loss(logits, labels):
             labels = tf.reshape(labels, [-1, 1])
-            return tf.nn.sampled_softmax_loss(weights=tf.transpose(w),
-                                              biases=b,
-                                              inputs=logits,
-                                              labels=labels,
-                                              num_sampled=config.NUM_SAMPLES,
+            return tf.nn.sampled_softmax_loss(weights=tf.transpose(w), 
+                                              biases=b, 
+                                              inputs=logits, 
+                                              labels=labels, 
+                                              num_sampled=config.NUM_SAMPLES, 
                                               num_classes=config.DEC_VOCAB)
         self.softmax_loss_function = sampled_loss
 
@@ -64,23 +64,23 @@ class ChatBotModel:
 
         if self.fw_only:
             self.outputs, self.losses = tf.contrib.legacy_seq2seq.model_with_buckets(
-                                        self.encoder_inputs,
-                                        self.decoder_inputs,
+                                        self.encoder_inputs, 
+                                        self.decoder_inputs, 
                                         self.targets,
-                                        self.decoder_masks,
-                                        config.BUCKETS,
+                                        self.decoder_masks, 
+                                        config.BUCKETS, 
                                         lambda x, y: _seq2seq_f(x, y, True),
                                         softmax_loss_function=self.softmax_loss_function)
             # If we use output projection, we need to project outputs for decoding.
             if self.output_projection:
                 for bucket in range(len(config.BUCKETS)):
-                    self.outputs[bucket] = [tf.matmul(output,
+                    self.outputs[bucket] = [tf.matmul(output, 
                                             self.output_projection[0]) + self.output_projection[1]
                                             for output in self.outputs[bucket]]
         else:
             self.outputs, self.losses = tf.contrib.legacy_seq2seq.model_with_buckets(
-                                        self.encoder_inputs,
-                                        self.decoder_inputs,
+                                        self.encoder_inputs, 
+                                        self.decoder_inputs, 
                                         self.targets,
                                         self.decoder_masks,
                                         config.BUCKETS,
@@ -100,19 +100,23 @@ class ChatBotModel:
                 self.train_ops = []
                 start = time.time()
                 for bucket in range(len(config.BUCKETS)):
-
-                    clipped_grads, norm = tf.clip_by_global_norm(tf.gradients(self.losses[bucket],
+                    
+                    clipped_grads, norm = tf.clip_by_global_norm(tf.gradients(self.losses[bucket], 
                                                                  trainables),
                                                                  config.MAX_GRAD_NORM)
                     self.gradient_norms.append(norm)
-                    self.train_ops.append(self.optimizer.apply_gradients(zip(clipped_grads, trainables),
+                    self.train_ops.append(self.optimizer.apply_gradients(zip(clipped_grads, trainables), 
                                                             global_step=self.global_step))
                     print('Creating opt for bucket {} took {} seconds'.format(bucket, time.time() - start))
                     start = time.time()
 
 
     def _create_summary(self):
-        pass
+       pass
+#       with tf.variable_scope('summary'):
+#           tf.summary.scalar('loss', self.losses)
+#
+#       self.summary = tf.summary.merge_all()
 
     def build_graph(self):
         self._create_placeholders()

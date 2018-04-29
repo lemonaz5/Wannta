@@ -1,7 +1,7 @@
 """ A neural chatbot using sequence to sequence model with
-attentional decoder.
+attentional decoder. 
 
-This is based on Google Translate Tensorflow model
+This is based on Google Translate Tensorflow model 
 https://github.com/tensorflow/models/blob/master/tutorials/rnn/translate/
 
 Sequence to sequence model by Cho et al.(2014)
@@ -78,17 +78,18 @@ def run_step(sess, model, encoder_inputs, decoder_inputs, decoder_masks, bucket_
 
     outputs = sess.run(output_feed, input_feed)
     if not forward_only:
-        return outputs[1], outputs[2], None  # Gradient norm, loss, no outputs.
+        return outputs[1], outputs[2], None, None # Gradient norm, loss, no outputs.
     else:
-        return None, outputs[0], outputs[1:]  # No gradient norm, loss, outputs.
+        return None, outputs[0], outputs[1:], None  # No gradient norm, loss, outputs.
+		
 
 def _get_buckets():
     """ Load the dataset into buckets based on their lengths.
-    train_buckets_scale is the inverval that'll help us
+    train_buckets_scale is the inverval that'll help us 
     choose a random bucket later on.
     """
     test_buckets = data.load_data('human_test.txt', 'bot_test.txt')
-    data_buckets = data.load_data('human_train.txt', 'bot_test.txt')
+    data_buckets = data.load_data('human_train.txt', 'bot_train.txt')
     train_bucket_sizes = [len(data_buckets[b]) for b in range(len(config.BUCKETS))]
     print("Number of samples in each bucket:\n", train_bucket_sizes)
     train_total_size = sum(train_bucket_sizes)
@@ -120,10 +121,10 @@ def _eval_test_set(sess, model, test_buckets):
             print("  Test: empty bucket %d" % (bucket_id))
             continue
         start = time.time()
-        encoder_inputs, decoder_inputs, decoder_masks = data.get_batch(test_buckets[bucket_id],
+        encoder_inputs, decoder_inputs, decoder_masks = data.get_batch(test_buckets[bucket_id], 
                                                                         bucket_id,
                                                                         batch_size=config.BATCH_SIZE)
-        _, step_loss, _ = run_step(sess, model, encoder_inputs, decoder_inputs,
+        _, step_loss, _, _ = run_step(sess, model, encoder_inputs, decoder_inputs, 
                                    decoder_masks, bucket_id, True)
         print('Test bucket {}: loss {}, time {}'.format(bucket_id, step_loss, time.time() - start))
 
@@ -134,9 +135,10 @@ def train():
     model = ChatBotModel(False, config.BATCH_SIZE)
     model.build_graph()
 
-    saver = tf.train.Saver()
+    saver = tf.train.Saver(max_to_keep=100)
 
     with tf.Session() as sess:
+        train_writer = tf.summary.FileWriter('/data/chatbot/summary/train', sess.graph)
         print('Running session')
         sess.run(tf.global_variables_initializer())
         _check_restore_parameters(sess, saver)
@@ -146,11 +148,11 @@ def train():
         while True:
             skip_step = _get_skip_step(iteration)
             bucket_id = _get_random_bucket(train_buckets_scale)
-            encoder_inputs, decoder_inputs, decoder_masks = data.get_batch(data_buckets[bucket_id],
+            encoder_inputs, decoder_inputs, decoder_masks = data.get_batch(data_buckets[bucket_id], 
                                                                            bucket_id,
                                                                            batch_size=config.BATCH_SIZE)
             start = time.time()
-            _, step_loss, _ = run_step(sess, model, encoder_inputs, decoder_inputs, decoder_masks, bucket_id, False)
+            _, step_loss, _, summary = run_step(sess, model, encoder_inputs, decoder_inputs, decoder_masks, bucket_id, False)
             total_loss += step_loss
             iteration += 1
 
@@ -159,6 +161,8 @@ def train():
                 start = time.time()
                 total_loss = 0
                 saver.save(sess, os.path.join(config.CPT_PATH, 'chatbot'), global_step=model.global_step)
+                #train_writer.add_summary(summary, iteration)
+
                 if iteration % (10 * skip_step) == 0:
                     # Run evals on development set and print their loss
                     _eval_test_set(sess, model, test_buckets)
@@ -180,11 +184,12 @@ def _construct_response(output_logits, inv_dec_vocab):
     """ Construct a response to the user's encoder input.
     @output_logits: the outputs from sequence to sequence wrapper.
     output_logits is decoder_size np array, each of dim 1 x DEC_VOCAB
-
+    
     This is a greedy decoder - outputs are just argmaxes of output_logits.
     """
     print(output_logits[0])
     outputs = [int(np.argmax(logit, axis=1)) for logit in output_logits]
+    print(outputs)
     # If there is an EOS symbol in outputs, cut them at that point.
     if config.EOS_ID in outputs:
         outputs = outputs[:outputs.index(config.EOS_ID)]
@@ -225,15 +230,15 @@ def chat():
             # Which bucket does it belong to?
             bucket_id = _find_right_bucket(len(token_ids))
             # Get a 1-element batch to feed the sentence to the model.
-            encoder_inputs, decoder_inputs, decoder_masks = data.get_batch([(token_ids, [])],
+            encoder_inputs, decoder_inputs, decoder_masks = data.get_batch([(token_ids, [])], 
                                                                             bucket_id,
                                                                             batch_size=1)
             # Get output logits for the sentence.
-            _, _, output_logits = run_step(sess, model, encoder_inputs, decoder_inputs,
+            _, _, output_logits, _ = run_step(sess, model, encoder_inputs, decoder_inputs,
                                            decoder_masks, bucket_id, True)
             response = _construct_response(output_logits, inv_dec_vocab)
             print(response)
-
+            
             output_file.write('BOT ++++ ' + response + '\n')
         output_file.write('=============================================\n')
         output_file.close()
