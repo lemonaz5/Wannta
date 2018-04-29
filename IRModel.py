@@ -159,7 +159,9 @@ def main():
     sentenceDatabase, idx2sen, sen2vec = prepare_model()
     print("type something")
     while(True):
+        sys.stdout.flush()
         text = input()
+        print(text)
         if(text == ''):
             break
         start = time.time()
