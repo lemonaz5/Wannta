@@ -8,10 +8,10 @@ from pythainlp.tokenize import word_tokenize
 #     return []
 
 class talkWithMe:
-    sentenceVectorFile = 'senVec.txt'
-    sentenceDictFile = 'sen2vec.pkl'
-    tokenizeFile = 'tokenized_out.txt'
-    sentencesFile = 'sentences.txt'
+    sentenceVectorFile = '../senVec-30k.txt'
+    sentenceDictFile = '../sen2vec-30k.pkl'
+    tokenizeFile = '../tokenized_out-30k.txt'
+    sentencesFile = '../sentences-30k.txt'
 
     def __init__(self):
         self.prepare_memory()
@@ -44,6 +44,7 @@ class talkWithMe:
             f.close()
             o.close()
             popen.kill()
+            return 
 
     def sentenceTokenize(self, inputSentence):
         tokenized = word_tokenize(inputSentence)
@@ -100,18 +101,27 @@ class talkWithMe:
             return sentenceDatabase, idx2sen, sen2vec
     
     def talkVec(self, inputSentenceVector):
-        inputAb = np.linalg.norm(inputSentenceVector, ord=1)
+        inputAb = np.linalg.norm(inputSentenceVector)
         output = self.sentenceDatabase.dot(inputSentenceVector)
         for i in range(self.sentenceDatabase.shape[0]):
-            output[i] /= (np.linalg.norm(self.sentenceDatabase[i], ord=1)) * inputAb
+            if ((np.linalg.norm(self.sentenceDatabase[i])) * inputAb) == 0:
+                output[i] = 0
+            else:
+                output[i] /= ((np.linalg.norm(self.sentenceDatabase[i])) * inputAb)
         sumAll = np.sum(output)
+        raw_output = np.argmax(output)
         output = output / sumAll
         outIdx = np.argmax(output)
-        return self.idx2sen[outIdx]
+        print( self.idx2sen[outIdx] + " = ",raw_output)
+        if raw_output < 0.35:
+            return "noMatch"
+        else:
+            return self.idx2sen[outIdx]
     
     def talk(self, inputText):
         inputText = self.sentenceTokenize(inputText)
         sent_vec = self.getSentenceVector(text=inputText)[0]
+        #print(sent_vec)
         return self.talkVec(sent_vec)
 
 
