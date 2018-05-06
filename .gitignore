@@ -1,5 +1,6 @@
 out/
 Linechat/
+prepro/
 __pycache__/
 backup/
 process.zip

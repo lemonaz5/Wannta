@@ -1,19 +1,3 @@
-""" A neural chatbot using sequence to sequence model with
-attentional decoder.
-
-This is based on Google Translate Tensorflow model
-https://github.com/tensorflow/models/blob/master/tutorials/rnn/translate/
-
-Sequence to sequence model by Cho et al.(2014)
-
-Created by Chip Huyen (chiphuyen@cs.stanford.edu)
-CS20: "TensorFlow for Deep Learning Research"
-cs20.stanford.edu
-
-This file contains the code to run the model.
-
-See README.md for instruction on how to run the starter code.
-"""
 import argparse
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL']='2'
@@ -27,6 +11,7 @@ import tensorflow as tf
 from model import ChatBotModel
 import config
 import data
+
 
 def _get_random_bucket(train_buckets_scale):
     """ Get a random bucket from which to choose a training sample """
@@ -88,8 +73,8 @@ def _get_buckets():
     train_buckets_scale is the inverval that'll help us
     choose a random bucket later on.
     """
-    test_buckets = data.load_data('human_test.txt', 'bot_test.txt')
-    data_buckets = data.load_data('human_train.txt', 'bot_train.txt')
+    test_buckets = data.load_data('../human_test.txt', '../bot_test_nostart.txt')
+    data_buckets = data.load_data('../human_train.txt', '../bot_train_nostart.txt')
     train_bucket_sizes = [len(data_buckets[b]) for b in range(len(config.BUCKETS))]
     print("Number of samples in each bucket:\n", train_bucket_sizes)
     train_total_size = sum(train_bucket_sizes)
@@ -196,54 +181,55 @@ def _construct_response(output_logits, inv_dec_vocab):
     # Print out sentence corresponding to outputs.
     return "".join([tf.compat.as_str(inv_dec_vocab[output]) for output in outputs])
 
-def chat():
-    """ in test mode, we don't to create the backward path
-    """
-    _, enc_vocab = data.load_vocab(os.path.join(config.PROCESSED_PATH, 'vocab.txt'))
-    inv_dec_vocab, _ = data.load_vocab(os.path.join(config.PROCESSED_PATH, 'vocab.txt'))
+def initchat():
+    _, enc_vocab = data.load_vocab(os.path.join(config.PROCESSED_PATH, '../vocab_nostart.txt'))
+    inv_dec_vocab, _  = data.load_vocab(os.path.join(config.PROCESSED_PATH, '../vocab_nostart.txt'))
 
     model = ChatBotModel(True, batch_size=1)
     model.build_graph()
-
     saver = tf.train.Saver()
+    sess = tf.Session()
+    sess.run(tf.global_variables_initializer())
+    _check_restore_parameters(sess, saver)
+    return sess, enc_vocab,inv_dec_vocab,model
 
-    with tf.Session() as sess:
-        sess.run(tf.global_variables_initializer())
-        _check_restore_parameters(sess, saver)
-        output_file = open(os.path.join(config.PROCESSED_PATH, config.OUTPUT_FILE), 'a+')
-        # Decode from standard input.
-        max_length = config.BUCKETS[-1][0]
-        print('Welcome to TensorBro. Say something. Enter to exit. Max length is', max_length)
-        while True:
-            line = _get_user_input()
-            if len(line) > 0 and line[-1] == '\n':
-                line = line[:-1]
-            if line == '':
-                break
-            output_file.write('HUMAN ++++ ' + line + '\n')
-            # Get token-ids for the input sentence.
-            token_ids = data.sentence2id(enc_vocab, str(line))
-            if (len(token_ids) > max_length):
-                print('Max length I can handle is:', max_length)
-                line = _get_user_input()
-                continue
-            # Which bucket does it belong to?
-            bucket_id = _find_right_bucket(len(token_ids))
-            # Get a 1-element batch to feed the sentence to the model.
-            encoder_inputs, decoder_inputs, decoder_masks = data.get_batch([(token_ids, [])],
-                                                                            bucket_id,
-                                                                            batch_size=1)
-            # Get output logits for the sentence.
-            _, _, output_logits, _ = run_step(sess, model, encoder_inputs, decoder_inputs,
-                                           decoder_masks, bucket_id, True)
-            response = _construct_response(output_logits, inv_dec_vocab)
-            print(response)
-            if(len(response)==0):
-                response = line + "เหรอ5555"
+def chat(sess, input_text,enc_vocab,inv_dec_vocab,model):
 
-            output_file.write('BOT ++++ ' + response + '\n')
-        output_file.write('=============================================\n')
-        output_file.close()
+#     output_file = open(os.path.join(config.PROCESSED_PATH, config.OUTPUT_FILE), 'a+')
+    # Decode from standard input.
+    max_length = config.BUCKETS[-1][0]
+#     print('Welcome to TensorBro. Say something. Enter to exit. Max length is', max_length)
+    # while True:
+    line = input_text
+    # line = _get_user_input()
+#     if len(line) > 0 and line[-1] == '\n':
+#         line = line[:-1]
+#     output_file.write('HUMAN ++++ ' + line + '\n')
+    # Get token-ids for the input sentence.
+    token_ids = data.sentence2id(enc_vocab, str(line))
+#     if (len(token_ids) > max_length):
+#         print('Max length I can handle is:', max_length)
+#         line = _get_user_input()
+#         continue
+    # Which bucket does it belong to?
+    bucket_id = _find_right_bucket(len(token_ids))
+    # Get a 1-element batch to feed the sentence to the model.
+    encoder_inputs, decoder_inputs, decoder_masks = data.get_batch([(token_ids, [])],
+                                                                    bucket_id,
+                                                                    batch_size=1)
+    # Get output logits for the sentence.
+    _, _, output_logits, _ = run_step(sess, model, encoder_inputs, decoder_inputs,
+                                    decoder_masks, bucket_id, True)
+    response = _construct_response(output_logits, inv_dec_vocab)
+    print(response)
+    if(len(response)==0 or "UNK" in response):
+        response = line + "เหรอ5555"
+#     output_file.write('BOT ++++ ' + response + '\n')
+
+#     output_file.write('=============================================\n')
+#     output_file.close()
+
+    return response
 
 def main():
     parser = argparse.ArgumentParser()
